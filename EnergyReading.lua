@@ -1,7 +1,6 @@
--- energy_report.lua
--- Sends energy levels of connected peripherals to a Discord webhook
--- Requires http enabled in cc-tweaked.conf
--- Save your webhook URL in config.lua
+-- energy_report_fixed.lua
+-- CC:Tweaked Energy Reporter to Discord Webhook
+-- Make sure http.enabled=true in cc-tweaked.conf
 
 local cfg = {
     webhook = "nuh uh",
@@ -10,9 +9,15 @@ local cfg = {
 
 local textutils = textutils
 
--- Helper function to detect energy storage methods
-local function isEnergyPeripheral(peripheral)
-    local methods = peripheral.getMethods(peripheral)
+-- Safely wrap a peripheral
+local function wrapPeripheral(name)
+    local ok, p = pcall(peripheral.wrap, name)
+    if ok then return p else return nil end
+end
+
+-- Detect if peripheral has any known energy methods
+local function isEnergyPeripheral(name)
+    local methods = peripheral.getMethods(name) or {}
     for _, m in ipairs(methods) do
         if m == "getEnergy" or m == "getEnergyStored" or m == "getEnergyLevel" then
             return true
@@ -21,53 +26,39 @@ local function isEnergyPeripheral(peripheral)
     return false
 end
 
--- Gather energy info from all peripherals
+-- Safely read energy from a peripheral
+local function getEnergy(p)
+    if not p then return nil end
+    if p.getEnergy then return p.getEnergy() end
+    if p.getEnergyStored then return p.getEnergyStored() end
+    if p.getEnergyLevel then return p.getEnergyLevel() end
+    return nil
+end
+
+-- Gather info from all attached peripherals
 local function gatherEnergyInfo()
     local result = {}
-    for side, _ in pairs(peripheral.getNames()) do
-        local p = peripheral.wrap(side)
-        if p and isEnergyPeripheral(side) then
-            local energy = nil
-            if p.getEnergy then
-                energy = p.getEnergy()
-            elseif p.getEnergyStored then
-                energy = p.getEnergyStored()
-            elseif p.getEnergyLevel then
-                energy = p.getEnergyLevel()
+    for _, name in ipairs(peripheral.getNames()) do
+        if isEnergyPeripheral(name) then
+            local p = wrapPeripheral(name)
+            local energy = getEnergy(p)
+            if energy ~= nil then
+                table.insert(result, { name = name, energy = tostring(energy) }) -- convert to string
             end
-            table.insert(result, {
-                peripheral = side,
-                energy = energy
-            })
         end
     end
     return result
 end
 
--- Send JSON to webhook
-local function sendWebhook(payload)
+-- Send JSON embed to Discord webhook
+local function sendWebhook(energyInfo)
     if not http then
-        print("HTTP API is not enabled!")
-        return false
+        print("ERROR: HTTP API not enabled!")
+        return
     end
-    local jsonPayload = textutils.serializeJSON(payload)
-    local headers = { ["Content-Type"] = "application/json" }
-    local res, err = http.post(cfg.webhook, jsonPayload, headers)
-    if not res then
-        print("Failed to send webhook:", err)
-        return false
-    end
-    if res.readAll then res.readAll() end
-    if res.close then res.close() end
-    print("Webhook sent successfully!")
-    return true
-end
 
--- Main
-local function main()
-    local energyInfo = gatherEnergyInfo()
     if #energyInfo == 0 then
-        print("No energy storage peripherals detected.")
+        print("No energy storage peripherals found.")
         return
     end
 
@@ -75,7 +66,7 @@ local function main()
         username = cfg.username,
         embeds = {{
             title = "Energy Report",
-            description = "Current energy levels of connected peripherals",
+            description = "Current energy levels of attached peripherals",
             fields = {},
             timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }}
@@ -83,14 +74,36 @@ local function main()
 
     for _, info in ipairs(energyInfo) do
         table.insert(payload.embeds[1].fields, {
-            name = info.peripheral,
-            value = tostring(info.energy),
+            name = tostring(info.name),
+            value = tostring(info.energy), -- ensure string
             inline = true
         })
     end
 
-    sendWebhook(payload)
+    local ok, err = pcall(function()
+        local headers = { ["Content-Type"] = "application/json" }
+        local res = http.post(cfg.webhook, textutils.serializeJSON(payload), headers)
+        if res and res.readAll then res.readAll() end
+        if res and res.close then res.close() end
+    end)
+
+    if ok then
+        print("Webhook sent successfully!")
+    else
+        print("Failed to send webhook:", err)
+    end
 end
 
--- Run
+-- Main function
+local function main()
+    local info = gatherEnergyInfo()
+    sendWebhook(info)
+end
+
+-- Run once (or loop with sleep for periodic updates)
 main()
+-- Example for periodic update every 60 seconds:
+-- while true do
+--     main()
+--     sleep(60)
+-- end
