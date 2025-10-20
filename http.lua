@@ -86,8 +86,8 @@ end
 
 -- 1) Simple message
 local payload_simple = {
-  content = "Hello from CC:Tweaked! :computer:",
-  username = "CC-Tweaked"
+  content = "From Tire's server:",
+  username = "Testing"
 }
 
 -- 2) Rich embed example
@@ -95,11 +95,11 @@ local payload_embed = {
   username = "CC-Tweaked",
   embeds = {
     {
-      title = "Player Joined",
-      description = "player123 joined the server",
+      title = "HTTP Test",
+      description = "Goated shit is in the makings",
       fields = {
-        { name = "Server", value = "MyServer", inline = true },
-        { name = "Players", value = "3/20", inline = true }
+        { name = "Server", value = "Artgen SMP", inline = true },
+        { name = "Test:", value = "its functioning", inline = true }
       },
       footer = { text = "CC:Tweaked webhook" },
       timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -108,7 +108,7 @@ local payload_embed = {
 }
 
 -- Choose payload to send:
-local ok, info = send_discord_webhook(payload_embed)
+local ok, info = send_discord_webhook(payload_embed), send_discord_webhook(payload_simple)
 if not ok then
   print("Failed to send webhook:", info)
 else
