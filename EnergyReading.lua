@@ -1,14 +1,24 @@
--- energy_monitor.lua
+-- energy_monitor_hms.lua
 -- Measures energy drain over 5 seconds and reports to Discord webhook
+-- Time remaining displayed as HH:MM:SS
 -- Requires http.enabled=true
 
 local cfg = {
-    webhook = "nuh uh",
+    webhook = "nub",
     username = "CC-EnergyBot",
     sampleTime = 5 -- seconds to measure energy drain
 }
 
 local textutils = textutils
+
+-- Helper: format seconds as HH:MM:SS
+local function formatTime(seconds)
+    if seconds == math.huge then return "∞" end
+    local h = math.floor(seconds / 3600)
+    local m = math.floor((seconds % 3600) / 60)
+    local s = math.floor(seconds % 60)
+    return string.format("%02d:%02d:%02d", h, m, s)
+end
 
 -- Wrap peripheral safely
 local function wrapPeripheral(name)
@@ -36,7 +46,7 @@ local function getEnergy(p)
     return nil
 end
 
--- Get max energy (if available)
+-- Get max energy
 local function getMaxEnergy(p)
     if not p then return nil end
     if p.getMaxEnergy then return p.getMaxEnergy() end
@@ -57,7 +67,7 @@ local function getEnergyPeripherals()
                     name = name,
                     peripheral = p,
                     energy = current,
-                    maxEnergy = max or current -- fallback if max unknown
+                    maxEnergy = max or current
                 })
             end
         end
@@ -87,7 +97,7 @@ local function measureDrain(peripherals, duration)
         local delta = startE - endE
         local drainPerSecond = delta / duration
         local percentFull = (endE / info.maxEnergy) * 100
-        local timeRemaining = (drainPerSecond > 0) and (endE / drainPerSecond) or math.huge
+        local timeRemaining = (drainPerSecond > 0) and formatTime(endE / drainPerSecond) or "∞"
 
         table.insert(results, {
             name = info.name,
@@ -102,15 +112,15 @@ local function measureDrain(peripherals, duration)
     return results
 end
 
--- Format for Discord embed
+-- Format results for Discord
 local function formatEmbed(results)
     local fields = {}
     for _, r in ipairs(results) do
         table.insert(fields, {
             name = r.name,
             value = string.format(
-                "Energy: %.1f/%.1f (%.1f%%)\nDrain: %.2f/sec\nTime remaining: %s sec",
-                r.energy, r.maxEnergy, r.percentFull, r.drainPerSecond, r.timeRemaining == math.huge and "∞" or string.format("%.1f", r.timeRemaining)
+                "Energy: %.1f/%.1f (%.1f%%)\nDrain: %.2f/sec\nTime remaining: %s",
+                r.energy, r.maxEnergy, r.percentFull, r.drainPerSecond, r.timeRemaining
             ),
             inline = false
         })
@@ -159,8 +169,8 @@ local function main()
     -- Print to console
     for _, r in ipairs(results) do
         print(string.format(
-            "%s: %.1f/%.1f (%.1f%%), Drain %.2f/sec, Time remaining: %s sec",
-            r.name, r.energy, r.maxEnergy, r.percentFull, r.drainPerSecond, r.timeRemaining == math.huge and "∞" or string.format("%.1f", r.timeRemaining)
+            "%s: %.1f/%.1f (%.1f%%), Drain %.2f/sec, Time remaining: %s",
+            r.name, r.energy, r.maxEnergy, r.percentFull, r.drainPerSecond, r.timeRemaining
         ))
     end
 
