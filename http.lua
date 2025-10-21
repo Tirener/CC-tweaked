@@ -108,7 +108,7 @@ local payload_embed = {
 }
 
 -- Choose payload to send:
-local ok, info = send_discord_webhook(payload_embed), send_discord_webhook(payload_simple)
+local ok, info = send_discord_webhook(payload_embed)
 if not ok then
   print("Failed to send webhook:", info)
 else
