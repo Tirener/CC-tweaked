@@ -138,13 +138,13 @@ def write_node_files(vault_path, nodes, connections):
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
 
-    print(f"✅ Created {len(nodes)} node files organized into:")
+    print(f"Created {len(nodes)} node files organized into:")
     print(f"   {router_dir}\n   {connectors_dir}\n   {devices_dir}")
 
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: python generate_structured_network_notes.py /path/to/ObsidianVault")
+        print("Usage: python generate_structured_network_notes.py ")
         sys.exit(1)
 
     vault_path = os.path.abspath(sys.argv[1])
