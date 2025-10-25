@@ -3,12 +3,10 @@
 -- Replace webhook variable below if you want to use a different webhook.
 
 local webhook = "nop"
-
 local function sleep_seconds(n)
   -- CC uses sleep() which accepts seconds
   sleep(n)
 end
-
 local function post_json(url, tbl, headers)
   local body = textutils.serializeJSON(tbl)
   headers = headers or {}
@@ -32,7 +30,6 @@ local function post_json(url, tbl, headers)
     body = responseText
   }
 end
-
 local function send_discord_webhook(payload, max_retries)
   max_retries = max_retries or 5
   local attempt = 0
@@ -81,15 +78,12 @@ local function send_discord_webhook(payload, max_retries)
   end
   return false, "exhausted retries"
 end
-
 -- Example payloads:
-
 -- 1) Simple message
 local payload_simple = {
   content = "From Tire's server:",
   username = "Testing"
 }
-
 -- 2) Rich embed example
 local payload_embed = {
   username = "CC-Tweaked",
@@ -106,7 +100,6 @@ local payload_embed = {
     }
   }
 }
-
 -- Choose payload to send:
 local ok, info = send_discord_webhook(payload_embed)
 if not ok then
