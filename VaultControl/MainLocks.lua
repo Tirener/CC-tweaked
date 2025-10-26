@@ -12,10 +12,19 @@ local outputSide = "back"    -- redstone output side
 os.pullEvent = os.pullEventRaw   -- disable Ctrl+T termination
 
 -- === PERIPHERALS ===
-local mon = peripheral.wrap("top")
-if not mon or peripheral.getType("top") ~= "monitor" then
-    error("Monitor not found on top. Please connect a wired monitor.")
+-- === PERIPHERALS ===
+local mon
+for _, name in ipairs(peripheral.getNames()) do
+    if peripheral.getType(name) == "monitor" then
+        mon = peripheral.wrap(name)
+        break
+    end
 end
+
+if not mon then
+    error("Monitor not found. Please connect a wired monitor.")
+end
+
 
 -- Some monitors (older) don't support setTextScale
 if mon.setTextScale then
