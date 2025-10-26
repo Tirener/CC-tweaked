@@ -1,7 +1,6 @@
 -- startup.lua
--- Vault Lock Numpad GUI for CC:Tweaked + Create vault door
--- Monitor connected via wired modem on TOP
--- Locks system until correct code entered, triggers redstone on back.
+-- Vault Lock Numpad GUI for CC:Tweaked (single monitor, smaller buttons)
+-- Monitor connected via wired modem
 
 -- === CONFIG ===
 local correctCode = "4582"   -- set your vault code here
@@ -11,7 +10,6 @@ local outputSide = "back"    -- redstone output side
 -- === SECURITY ===
 os.pullEvent = os.pullEventRaw   -- disable Ctrl+T termination
 
--- === PERIPHERALS ===
 -- === PERIPHERALS ===
 local mon
 for _, name in ipairs(peripheral.getNames()) do
@@ -25,10 +23,9 @@ if not mon then
     error("Monitor not found. Please connect a wired monitor.")
 end
 
-
--- Some monitors (older) don't support setTextScale
+-- Adjust text scale if possible
 if mon.setTextScale then
-    mon.setTextScale(1)
+    mon.setTextScale(0.5)
 end
 
 mon.setBackgroundColor(colors.black)
@@ -55,7 +52,9 @@ end
 local function drawButton(id, label, x, y, width, height)
     buttons[id] = {x = x, y = y, w = width, h = height}
     paintutils.drawFilledBox(x, y, x + width - 1, y + height - 1, colors.gray)
-    mon.setCursorPos(x + math.floor((width - #label) / 2), y + math.floor(height / 2))
+    local tx = x + math.floor((width - #label) / 2)
+    local ty = y + math.floor(height / 2)
+    mon.setCursorPos(tx, ty)
     mon.setTextColor(colors.white)
     mon.write(label)
 end
@@ -68,7 +67,8 @@ local function drawUI(entered, message)
         centerText(5, message, colors.yellow)
     end
 
-    local bw, bh = 7, 3
+    -- smaller buttons
+    local bw, bh = 5, 2
     local startX = math.floor((w - (bw * 3 + 2)) / 2)
     local startY = 7
     local labels = {
@@ -111,29 +111,26 @@ end
 
 while true do
     local event, side, x, y = os.pullEvent("monitor_touch")
-
-    if side == "top" then
-        local btn = getButtonAt(x, y)
-        if btn then
-            if btn == "CLR" then
+    local btn = getButtonAt(x, y)
+    if btn then
+        if btn == "CLR" then
+            entered = ""
+            drawUI(entered)
+        elseif btn == "ENT" then
+            if entered == correctCode then
+                drawUI("", "ACCESS GRANTED")
+                pulseRedstone()
+                drawUI("", "LOCKED")
+            else
+                drawUI("", "ACCESS DENIED")
+                sleep(1.5)
                 entered = ""
                 drawUI(entered)
-            elseif btn == "ENT" then
-                if entered == correctCode then
-                    drawUI("", "ACCESS GRANTED")
-                    pulseRedstone()
-                    drawUI("", "LOCKED")
-                else
-                    drawUI("", "ACCESS DENIED")
-                    sleep(1.5)
-                    entered = ""
-                    drawUI(entered)
-                end
-            else
-                if #entered < 4 then
-                    entered = entered .. btn
-                    drawUI(entered)
-                end
+            end
+        else
+            if #entered < 4 then
+                entered = entered .. btn
+                drawUI(entered)
             end
         end
     end
