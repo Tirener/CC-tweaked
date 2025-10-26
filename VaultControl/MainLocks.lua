@@ -13,11 +13,15 @@ os.pullEvent = os.pullEventRaw   -- disable Ctrl+T termination
 
 -- === PERIPHERALS ===
 local mon = peripheral.wrap("top")
-if not mon then
+if not mon or peripheral.getType("top") ~= "monitor" then
     error("Monitor not found on top. Please connect a wired monitor.")
 end
 
-mon.setTextScale(1)
+-- Some monitors (older) don't support setTextScale
+if mon.setTextScale then
+    mon.setTextScale(1)
+end
+
 mon.setBackgroundColor(colors.black)
 mon.setTextColor(colors.white)
 mon.clear()
