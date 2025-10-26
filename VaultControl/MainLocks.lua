@@ -1,46 +1,50 @@
 -- startup.lua
--- Secure Vault Lock Numpad GUI for CC:Tweaked
+-- Vault Lock Numpad GUI for CC:Tweaked + Create vault door
+-- Monitor connected via wired modem on TOP
 -- Locks system until correct code entered, triggers redstone on back.
 
 -- === CONFIG ===
-local correctCode = "8642"   -- set your vault code
+local correctCode = "4582"   -- set your vault code here
 local pulseTime = 10         -- seconds redstone stays on
 local outputSide = "back"    -- redstone output side
 
 -- === SECURITY ===
-os.pullEvent = os.pullEventRaw   -- disable Ctrl+T
+os.pullEvent = os.pullEventRaw   -- disable Ctrl+T termination
 
--- === DISPLAY DETECTION ===
-local mon = peripheral.find("monitor")
-local screen = mon or term
-if mon then
-    mon.setTextScale(1)
+-- === PERIPHERALS ===
+local mon = peripheral.wrap("top")
+if not mon then
+    error("Monitor not found on top. Please connect a wired monitor.")
 end
 
--- === DRAW HELPERS ===
-local buttons = {}
-local w, h = screen.getSize()
+mon.setTextScale(1)
+mon.setBackgroundColor(colors.black)
+mon.setTextColor(colors.white)
+mon.clear()
 
+local w, h = mon.getSize()
+local buttons = {}
+
+-- === DRAW HELPERS ===
 local function clearScreen(color)
-    screen.setBackgroundColor(color or colors.black)
-    screen.clear()
+    mon.setBackgroundColor(color or colors.black)
+    mon.clear()
 end
 
 local function centerText(y, text, color)
     local x = math.floor((w - #text) / 2) + 1
-    screen.setCursorPos(x, y)
-    if color then screen.setTextColor(color) end
-    screen.write(text)
-    screen.setTextColor(colors.white)
+    mon.setCursorPos(x, y)
+    if color then mon.setTextColor(color) end
+    mon.write(text)
+    mon.setTextColor(colors.white)
 end
 
 local function drawButton(id, label, x, y, width, height)
     buttons[id] = {x = x, y = y, w = width, h = height}
     paintutils.drawFilledBox(x, y, x + width - 1, y + height - 1, colors.gray)
-    screen.setCursorPos(x + math.floor((width - #label) / 2), y + math.floor(height / 2))
-    screen.setTextColor(colors.white)
-    screen.write(label)
-    screen.setTextColor(colors.white)
+    mon.setCursorPos(x + math.floor((width - #label) / 2), y + math.floor(height / 2))
+    mon.setTextColor(colors.white)
+    mon.write(label)
 end
 
 local function drawUI(entered, message)
@@ -93,16 +97,9 @@ local function pulseRedstone()
 end
 
 while true do
-    local event, p1, p2, p3 = os.pullEvent()
-    local x, y = nil, nil
+    local event, side, x, y = os.pullEvent("monitor_touch")
 
-    if event == "monitor_touch" then
-        x, y = p2, p3
-    elseif event == "mouse_click" then
-        x, y = p2, p3
-    end
-
-    if x and y then
+    if side == "top" then
         local btn = getButtonAt(x, y)
         if btn then
             if btn == "CLR" then
