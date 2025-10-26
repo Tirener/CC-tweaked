@@ -1,29 +1,30 @@
 -- startup.lua
--- Secure Vault Lock Numpad (CC:Tweaked)
--- Runs automatically on startup and cannot be terminated (Ctrl+T disabled)
+-- Secure Vault Lock Numpad GUI for CC:Tweaked
+-- Locks system until correct code entered, triggers redstone on back.
 
 -- === CONFIG ===
-local correctCode = ""      
-local pulseTime = 10             -- seconds redstone stays active
-local outputSide = "back"        -- side for redstone output (vault door)
+local correctCode = "8642"   -- set your vault code
+local pulseTime = 10         -- seconds redstone stays on
+local outputSide = "back"    -- redstone output side
 
 -- === SECURITY ===
-os.pullEvent = os.pullEventRaw   -- disable Ctrl+T termination
+os.pullEvent = os.pullEventRaw   -- disable Ctrl+T
 
--- === DETECT DISPLAY ===
-local mon
-if peripheral.isPresent("monitor_0") then
-    mon = peripheral.wrap("monitor_0")
-elseif peripheral.find("monitor") then
-    mon = peripheral.find("monitor")
-end
-
+-- === DISPLAY DETECTION ===
+local mon = peripheral.find("monitor")
 local screen = mon or term
-if mon then mon.setTextScale(1) end
+if mon then
+    mon.setTextScale(1)
+end
 
 -- === DRAW HELPERS ===
 local buttons = {}
 local w, h = screen.getSize()
+
+local function clearScreen(color)
+    screen.setBackgroundColor(color or colors.black)
+    screen.clear()
+end
 
 local function centerText(y, text, color)
     local x = math.floor((w - #text) / 2) + 1
@@ -34,37 +35,40 @@ local function centerText(y, text, color)
 end
 
 local function drawButton(id, label, x, y, width, height)
-    buttons[id] = {x = x, y = y, w = width, h = height, label = label}
+    buttons[id] = {x = x, y = y, w = width, h = height}
     paintutils.drawFilledBox(x, y, x + width - 1, y + height - 1, colors.gray)
-    screen.setCursorPos(x + math.floor((width - #label)/2), y + math.floor(height/2))
+    screen.setCursorPos(x + math.floor((width - #label) / 2), y + math.floor(height / 2))
     screen.setTextColor(colors.white)
     screen.write(label)
+    screen.setTextColor(colors.white)
 end
 
 local function drawUI(entered, message)
-    screen.setBackgroundColor(colors.black)
-    screen.clear()
-
+    clearScreen(colors.black)
     centerText(1, "=== VAULT LOCK ===", colors.cyan)
     centerText(3, string.rep("*", #entered))
-    if message then centerText(5, message, colors.yellow) end
+    if message then
+        centerText(5, message, colors.yellow)
+    end
 
     local bw, bh = 7, 3
     local startX = math.floor((w - (bw * 3 + 2)) / 2)
     local startY = 7
     local labels = {
-        "1","2","3",
-        "4","5","6",
-        "7","8","9",
-        "CLR","0","ENT"
+        "1", "2", "3",
+        "4", "5", "6",
+        "7", "8", "9",
+        "CLR", "0", "ENT"
     }
 
-    local index = 1
-    for row = 0,3 do
-        for col = 0,2 do
-            local label = labels[index]
-            drawButton(label, label, startX + col * (bw + 1), startY + row * (bh + 1), bw, bh)
-            index = index + 1
+    local i = 1
+    for row = 0, 3 do
+        for col = 0, 2 do
+            local label = labels[i]
+            if label then
+                drawButton(label, label, startX + col * (bw + 1), startY + row * (bh + 1), bw, bh)
+            end
+            i = i + 1
         end
     end
 end
@@ -89,11 +93,16 @@ local function pulseRedstone()
 end
 
 while true do
-    local event, side, x, y = os.pullEvent()
-    if event == "monitor_touch" or event == "mouse_click" or event == "touch" then
-        if not mon and event == "mouse_click" then
-            x, y = side, x -- adjust for mouse_click event
-        end
+    local event, p1, p2, p3 = os.pullEvent()
+    local x, y = nil, nil
+
+    if event == "monitor_touch" then
+        x, y = p2, p3
+    elseif event == "mouse_click" then
+        x, y = p2, p3
+    end
+
+    if x and y then
         local btn = getButtonAt(x, y)
         if btn then
             if btn == "CLR" then
