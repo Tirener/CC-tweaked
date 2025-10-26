@@ -1,28 +1,33 @@
 -- vault_lock.lua
--- Simple vault lock for CC:Tweaked
--- User types code into the computer, triggers redstone if correct
+-- Simple vault lock for CC:Tweaked with reliable pulse
 
--- === CONFIG ===
-local correctCode = "4582"   -- set your vault code here
-local pulseTime = 10         -- seconds redstone stays on
-local outputSide = "back"    -- redstone output side
+local correctCode = "4582"
+local pulseTime = 10
+local outputSide = "back"
 
--- === SECURITY ===
-os.pullEvent = os.pullEventRaw   -- disable Ctrl+T termination
+os.pullEvent = os.pullEventRaw
 
--- === MAIN LOOP ===
 while true do
     term.clear()
     term.setCursorPos(1,1)
     print("=== VAULT LOCK ===")
     io.write("Enter code: ")
-    local entered = read("*")  -- masks input with *
+    local entered = read("*")  -- masks input
 
     if entered == correctCode then
         print("ACCESS GRANTED")
-        redstone.setOutput(outputSide, true)
-        sleep(pulseTime)
-        redstone.setOutput(outputSide, false)
+        -- Pulse redstone safely
+        local success, err = pcall(function()
+            redstone.setOutput(outputSide, true)
+            local start = os.clock()
+            while os.clock() - start < pulseTime do
+                sleep(0.1)  -- keep loop alive
+            end
+            redstone.setOutput(outputSide, false)
+        end)
+        if not success then
+            print("Redstone error:", err)
+        end
         print("LOCKED")
     else
         print("ACCESS DENIED")
