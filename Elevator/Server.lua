@@ -8,8 +8,8 @@
 local modemSide = "back"
 local motorSide = "right"
 local meterSide = "left"  -- optional
-local defaultSpeed = 32    -- RPM (positive)
-local safetyTimeout = 30   -- seconds
+local defaultSpeed = 32   -- RPM (positive)
+local safetyTimeout = 30  -- seconds
 
 -- Wrap peripherals
 local motor = peripheral.wrap(motorSide)
@@ -27,6 +27,8 @@ end
 
 local running = false
 
+-- === Helper Functions ===
+
 local function reply(id, msg)
     if id then
         rednet.send(id, msg)
@@ -34,7 +36,9 @@ local function reply(id, msg)
 end
 
 local function stopMotor()
-    motor.setSpeed(0)
+    if motor and motor.getSpeed then
+        motor.setSpeed(0)
+    end
     running = false
 end
 
@@ -44,25 +48,31 @@ local function move(direction, sender)
         return
     end
 
-    running = true
-    local startTime = os.clock()
     local dir = (direction == "up") and 1 or (direction == "down" and -1 or 0)
     if dir == 0 then
         reply(sender, { status = "error", reason = "invalid direction" })
-        running = false
         return
     end
 
+    running = true
+    local startTime = os.clock()
     reply(sender, { status = "started", direction = direction })
+
     motor.setSpeed(defaultSpeed * dir)
 
-    -- Optional: read baseline meter value
     local baseEnergy = hasMeter and meter.getEnergy() or nil
 
     while running do
-        os.sleep(0.1)
+        sleep(0.1)
 
-        -- If a meter exists, use energy change as arrival cue (simplistic)
+        -- Stop if motor unloaded or invalid
+        if not peripheral.isPresent(motorSide) then
+            running = false
+            reply(sender, { status = "error", reason = "motor disconnected" })
+            return
+        end
+
+        -- Optional: stop when meter stabilizes
         if hasMeter then
             local e = meter.getEnergy()
             if baseEnergy and math.abs(e - baseEnergy) < 0.01 then
@@ -72,14 +82,14 @@ local function move(direction, sender)
             end
         end
 
-        -- timeout
+        -- Timeout safeguard
         if os.clock() - startTime > safetyTimeout then
             stopMotor()
             reply(sender, { status = "timeout" })
             return
         end
 
-        -- Check for incoming stop/status messages
+        -- Check for new messages
         local id, msg = rednet.receive(0.05)
         if id and type(msg) == "table" then
             if msg.command == "stop" then
@@ -87,12 +97,27 @@ local function move(direction, sender)
                 reply(id, { status = "stopped" })
                 return
             elseif msg.command == "status" then
-                reply(id, { status = "moving", direction = direction })
+                reply(id, { status = running and "moving" or "idle", direction = direction })
             end
         end
     end
 end
 
+-- === Routine Command ===
+local function routine(sender)
+    if running then
+        reply(sender, { status = "busy", reason = "already moving" })
+        return
+    end
+
+    reply(sender, { status = "routine_start" })
+    move("down", sender)
+    sleep(25)  -- wait time
+    move("up", sender)
+    reply(sender, { status = "routine_complete" })
+end
+
+-- === Main Server Loop ===
 print("Elevator server running. Listening for commands...")
 
 while true do
@@ -105,11 +130,14 @@ while true do
             stopMotor()
             reply(id, { status = "stopped" })
         elseif cmd == "status" then
-            reply(id, { status = running and "moving" or "idle" })
+            local rpm = motor.getSpeed and motor.getSpeed() or 0
+            reply(id, { status = running and "moving" or "idle", rpm = rpm })
+        elseif cmd == "routine" then
+            routine(id)
         elseif cmd == "whois" then
             reply(id, { kind = "server", note = "elevator-server" })
         else
-            reply(id, { status = "error", reason = "unknown command" })
+            reply(id, { status = "error", reason = "unknown command: " .. tostring(cmd) })
         end
     end
 end
